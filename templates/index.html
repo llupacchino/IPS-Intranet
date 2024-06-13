@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPS Intranet - Terminal Status</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        table {
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .connected {
+            background-color: #d4edda;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+        }
+        .status-connected {
+            color: #155724;
+            font-weight: 600;
+        }
+        .status-disconnected {
+            color: #721c24;
+            font-weight: 600;
+        }
+        .selected {
+            background-color: #b3d7ff !important;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">IPS Intranet - Terminal Status</h1>
+        <div class="mb-3">
+            <a href="/logout" class="btn btn-secondary">Logout</a>
+            <button id="reboot-btn" class="btn btn-danger">Reboot</button>
+            <button id="speedtest-btn" class="btn btn-info">Speedtest</button>
+        </div>
+        <table class="table table-hover">
+            <thead class="thead-light">
+                <tr>
+                    <th>Store</th>
+                    <th>Terminal</th>
+                    <th>IP</th>
+                    <th>ISP</th>
+                    <th>Status</th>
+                    <th>App</th>
+                </tr>
+            </thead>
+            <tbody id="terminals-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- The Modal -->
+    <div id="speedtestModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Speedtest Results</h2>
+            <p id="speedtest-results">Performing speedtest...</p>
+        </div>
+    </div>
+
+    <script>
+        var socket = io();
+        var selectedTerminal = null;
+        var selectedTerminalKey = null;
+
+        function updateTable(terminals) {
+            console.log("Updating table with terminals:", terminals);
+            const tableBody = document.getElementById('terminals-table-body');
+            tableBody.innerHTML = '';
+
+            for (const [key, info] of Object.entries(terminals)) {
+                const [store, terminal] = key.split(',');
+
+                const row = document.createElement('tr');
+                row.classList.add(info.status === 'connected' ? 'connected' : 'disconnected');
+                row.onclick = () => selectTerminal(row, key);
+
+                const storeCell = document.createElement('td');
+                storeCell.textContent = store;
+                row.appendChild(storeCell);
+
+                const terminalCell = document.createElement('td');
+                terminalCell.textContent = terminal;
+                row.appendChild(terminalCell);
+
+                const ipCell = document.createElement('td');
+                ipCell.textContent = info.ip;
+                row.appendChild(ipCell);
+
+                const ispCell = document.createElement('td');
+                ispCell.textContent = info.isp;
+                row.appendChild(ispCell);
+
+                const statusCell = document.createElement('td');
+                statusCell.textContent = info.status === 'connected' ? 'Online' : 'Offline';
+                statusCell.classList.add(info.status === 'connected' ? 'status-connected' : 'status-disconnected');
+                row.appendChild(statusCell);
+
+                const appCell = document.createElement('td');
+                appCell.textContent = info.app_status;
+                row.appendChild(appCell);
+
+                tableBody.appendChild(row);
+            }
+        }
+
+        function selectTerminal(row, key) {
+            if (selectedTerminal) {
+                selectedTerminal.classList.remove('selected');
+            }
+            selectedTerminal = row;
+            selectedTerminal.classList.add('selected');
+            selectedTerminalKey = key;
+        }
+
+        document.getElementById('reboot-btn').onclick = function() {
+            if (selectedTerminalKey) {
+                socket.emit('reboot_terminal', selectedTerminalKey);
+            } else {
+                alert("Please select a terminal to reboot.");
+            }
+        }
+
+        document.getElementById('speedtest-btn').onclick = function() {
+            if (selectedTerminalKey) {
+                socket.emit('perform_speedtest', selectedTerminalKey);
+                document.getElementById('speedtest-results').textContent = "Performing speedtest...";
+                document.getElementById('speedtestModal').style.display = "block";
+            } else {
+                alert("Please select a terminal to perform a speedtest.");
+            }
+        }
+
+        // Close the modal
+        document.getElementsByClassName('close')[0].onclick = function() {
+            document.getElementById('speedtestModal').style.display = "none";
+        }
+
+        socket.on('connect', function() {
+            console.log("Connected to server via WebSocket");
+        });
+
+        socket.on('update_status', function(terminals) {
+            console.log("Received update via WebSocket:", terminals);
+            updateTable(terminals);
+        });
+
+        socket.on('speedtest_results', function(results) {
+            console.log("Received speedtest results:", results);
+            document.getElementById('speedtest-results').textContent = `Download Speed: ${results.download_speed.toFixed(2)} Mbps\nUpload Speed: ${results.upload_speed.toFixed(2)} Mbps`;
+        });
+
+        // Initial load
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(terminals => {
+                console.log("Received initial status:", terminals);
+                updateTable(terminals);
+            });
+    </script>
+</body>
+</html>
