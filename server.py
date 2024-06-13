@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, send_file
 from flask_socketio import SocketIO, emit
 from threading import Thread
 import time
@@ -25,6 +25,8 @@ expected_terminals = {}
 connected_terminals = {}
 heartbeat_timeout = 20  # seconds
 log_file = 'server_logs.txt'
+terminal_exe_path = 'terminal.exe'
+terminal_version = '1.0'  # Versioning for the Terminal executable
 
 # Load expected terminals from a file (expected_terminals.json)
 def load_expected_terminals():
@@ -147,6 +149,14 @@ def load_expected_terminals_api():
     global expected_terminals
     expected_terminals = request.json
     return jsonify(success=True)
+
+@app.route('/check_update', methods=['GET'])
+def check_update():
+    return jsonify({'version': terminal_version})
+
+@app.route('/download_update', methods=['GET'])
+def download_update():
+    return send_file(terminal_exe_path, as_attachment=True)
 
 @socketio.on('connect')
 @authenticate

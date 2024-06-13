@@ -5,6 +5,8 @@ import psutil
 import socketio
 import os
 import speedtest
+import sys
+import subprocess
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
@@ -23,7 +25,16 @@ def read_config(file_path):
         logging.error(f"Error reading config file: {e}")
         config['store_id'] = 'Unknown'
         config['terminal_id'] = 'Unknown'
+        config['version'] = '0.0'  # Default version if not present
     return config
+
+def write_config(file_path, config):
+    try:
+        with open(file_path, 'w') as file:
+            for key, value in config.items():
+                file.write(f"{key}={value}\n")
+    except Exception as e:
+        logging.error(f"Error writing config file: {e}")
 
 def get_ip_info():
     try:
@@ -92,9 +103,50 @@ def send_status(store_id, terminal_id, status, ip, isp, app_status, memory_usage
     except Exception as e:
         logging.error(f"Error: {e}")
 
+def check_for_updates(current_version):
+    try:
+        response = requests.get(f"{SERVER_URL}/check_update")
+        data = response.json()
+        latest_version = data['version']
+        if latest_version != current_version:
+            logging.info(f"New version available: {latest_version}")
+            return latest_version
+    except Exception as e:
+        logging.error(f"Error checking for updates: {e}")
+    return None
+
+def download_update():
+    try:
+        response = requests.get(f"{SERVER_URL}/download_update")
+        with open('terminal_new.exe', 'wb') as file:
+            file.write(response.content)
+        logging.info("Update downloaded")
+        return True
+    except Exception as e:
+        logging.error(f"Error downloading update: {e}")
+    return False
+
+def apply_update():
+    try:
+        with open('update.bat', 'w') as bat_file:
+            bat_file.write(f'''
+            @echo off
+            timeout /t 5 /nobreak > nul
+            taskkill /f /im terminal.exe > nul
+            move /y "terminal_new.exe" "terminal.exe"
+            start terminal.exe
+            del update.bat
+            ''')
+        subprocess.Popen(['update.bat'], shell=True)
+        return True
+    except Exception as e:
+        logging.error(f"Error applying update: {e}")
+    return False
+
 def start_terminal(config):
     ip, isp = get_ip_info()
     app_name = config.get('app_name', 'example.exe')  # Replace 'example.exe' with your actual .exe file name
+    current_version = config.get('version', '0.0')
     last_ip = ip
     last_isp = isp
     last_app_status = "Not running"
@@ -150,6 +202,16 @@ def start_terminal(config):
             last_app_status = app_status
 
         send_status(config['store_id'], config['terminal_id'], "connected", current_ip, current_isp, app_status, memory_usage)
+
+        new_version = check_for_updates(current_version)
+        if new_version:
+            if download_update():
+                if apply_update():
+                    logging.info("Restarting to apply update")
+                    config['version'] = new_version
+                    write_config(CONFIG_PATH, config)
+                    sys.exit()
+
         time.sleep(10)  # Send status updates periodically
 
 if __name__ == "__main__":
