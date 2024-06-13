@@ -89,6 +89,7 @@
                     <th>ISP</th>
                     <th>Status</th>
                     <th>App</th>
+                    <th>RAM Usage</th>
                 </tr>
             </thead>
             <tbody id="terminals-table-body"></tbody>
@@ -145,6 +146,10 @@
                 const appCell = document.createElement('td');
                 appCell.textContent = info.app_status;
                 row.appendChild(appCell);
+
+                const memoryCell = document.createElement('td');
+                memoryCell.textContent = info.memory_usage;
+                row.appendChild(memoryCell);
 
                 tableBody.appendChild(row);
             }

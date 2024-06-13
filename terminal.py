@@ -42,6 +42,10 @@ def is_app_running(app_name):
             return True
     return False
 
+def get_memory_usage():
+    memory = psutil.virtual_memory()
+    return memory.percent
+
 def perform_speedtest():
     try:
         st = speedtest.Speedtest()
@@ -55,7 +59,7 @@ def perform_speedtest():
         logging.error(f"Error performing speedtest: {e}")
         return None, None
 
-def send_status(store_id, terminal_id, status, ip, isp, app_status, download_speed=None, upload_speed=None):
+def send_status(store_id, terminal_id, status, ip, isp, app_status, memory_usage, download_speed=None, upload_speed=None):
     url = f"{SERVER_URL}/update"
     try:
         data = {
@@ -65,6 +69,7 @@ def send_status(store_id, terminal_id, status, ip, isp, app_status, download_spe
             "ip": ip,
             "isp": isp,
             "app_status": app_status,
+            "memory_usage": memory_usage,
             "download_speed": download_speed,
             "upload_speed": upload_speed
         }
@@ -82,7 +87,8 @@ def start_terminal(config):
     @sio.event
     def connect():
         logging.info("Connected to server")
-        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, "Not running")
+        memory_usage = get_memory_usage()
+        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, "Not running", memory_usage)
 
     @sio.event
     def disconnect():
@@ -111,7 +117,8 @@ def start_terminal(config):
 
     while True:
         app_status = "Running" if is_app_running(app_name) else "Not running"
-        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, app_status)
+        memory_usage = get_memory_usage()
+        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, app_status, memory_usage)
         time.sleep(10)  # Send status updates periodically
 
 if __name__ == "__main__":

@@ -42,7 +42,7 @@ def combine_terminals(expected, connected):
             if key in connected:
                 combined[key] = connected[key]
             else:
-                combined[key] = {'ip': 'N/A', 'isp': 'N/A', 'status': 'disconnected', 'app_status': 'Not running'}
+                combined[key] = {'ip': 'N/A', 'isp': 'N/A', 'status': 'disconnected', 'app_status': 'Not running', 'memory_usage': 'N/A'}
     for key, value in connected.items():
         if key not in combined:
             combined[key] = value
@@ -109,8 +109,16 @@ def update_status():
     ip = data.get('ip')
     isp = data.get('isp')
     app_status = data.get('app_status', 'Not running')  # Default to 'Not running' if the key is missing
+    memory_usage = data.get('memory_usage', 'N/A')
     key = f"{store_id},{terminal_id}"
-    connected_terminals[key] = {'ip': ip, 'isp': isp, 'status': status, 'last_heartbeat': time.time(), 'app_status': app_status}
+    connected_terminals[key] = {
+        'ip': ip,
+        'isp': isp,
+        'status': status,
+        'last_heartbeat': time.time(),
+        'app_status': app_status,
+        'memory_usage': memory_usage
+    }
     combined_terminals = combine_terminals(expected_terminals, connected_terminals)
     socketio.emit('update_status', combined_terminals)
     return jsonify({"message": "Status updated"}), 200
