@@ -24,6 +24,7 @@ USER_CREDENTIALS = {
 expected_terminals = {}
 connected_terminals = {}
 heartbeat_timeout = 20  # seconds
+log_file = 'server_logs.txt'
 
 # Load expected terminals from a file (expected_terminals.json)
 def load_expected_terminals():
@@ -122,6 +123,23 @@ def update_status():
     combined_terminals = combine_terminals(expected_terminals, connected_terminals)
     socketio.emit('update_status', combined_terminals)
     return jsonify({"message": "Status updated"}), 200
+
+@app.route('/log', methods=['POST'])
+def save_log():
+    data = request.json
+    store_id = data.get('store_id')
+    terminal_id = data.get('terminal_id')
+    log_entry = data.get('log_entry')
+    with open(log_file, 'a') as log:
+        log.write(f"Store: {store_id}, Terminal: {terminal_id} - {log_entry}")
+    return jsonify({"message": "Log saved"}), 200
+
+@app.route('/logs', methods=['GET'])
+@authenticate
+def get_logs():
+    with open(log_file, 'r') as log:
+        logs = log.readlines()
+    return jsonify(logs)
 
 @app.route('/load_expected_terminals', methods=['POST'])
 @authenticate
