@@ -57,6 +57,9 @@ def get_memory_usage():
     memory = psutil.virtual_memory()
     return memory.percent
 
+def is_windows_locked():
+    return is_app_running('LogonUI.exe')
+
 def perform_speedtest():
     try:
         st = speedtest.Speedtest()
@@ -84,7 +87,7 @@ def log_change(event, details, store_id, terminal_id):
     except Exception as e:
         logging.error(f"Error sending log to server: {e}")
 
-def send_status(store_id, terminal_id, status, ip, isp, app_status, memory_usage, download_speed=None, upload_speed=None):
+def send_status(store_id, terminal_id, status, ip, isp, app_status, memory_usage, logon_status, download_speed=None, upload_speed=None):
     url = f"{SERVER_URL}/update"
     try:
         data = {
@@ -95,6 +98,7 @@ def send_status(store_id, terminal_id, status, ip, isp, app_status, memory_usage
             "isp": isp,
             "app_status": app_status,
             "memory_usage": memory_usage,
+            "logon_status": logon_status,
             "download_speed": download_speed,
             "upload_speed": upload_speed
         }
@@ -128,16 +132,16 @@ def download_update():
 
 def apply_update():
     try:
-        with open('update.bat', 'w') as bat_file:
+        with open('update_and_relaunch.bat', 'w') as bat_file:
             bat_file.write(f'''
             @echo off
             timeout /t 5 /nobreak > nul
             taskkill /f /im terminal.exe > nul
             move /y "terminal_new.exe" "terminal.exe"
-            start terminal.exe
-            del update.bat
+            start /min terminal.exe
+            del update_and_relaunch.bat
             ''')
-        subprocess.Popen(['update.bat'], shell=True)
+        subprocess.Popen(['update_and_relaunch.bat'], shell=True)
         return True
     except Exception as e:
         logging.error(f"Error applying update: {e}")
@@ -157,7 +161,8 @@ def start_terminal(config):
     def connect():
         logging.info("Connected to server")
         memory_usage = get_memory_usage()
-        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, "Not running", memory_usage)
+        logon_status = is_windows_locked()
+        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, "Not running", memory_usage, logon_status)
 
     @sio.event
     def disconnect():
@@ -185,23 +190,11 @@ def start_terminal(config):
     sio.connect(SERVER_URL)
 
     while True:
-        current_ip, current_isp = get_ip_info()
         app_status = "Running" if is_app_running(app_name) else "Not running"
         memory_usage = get_memory_usage()
+        logon_status = is_windows_locked()
 
-        if current_ip != last_ip:
-            log_change("IP Change", f"From {last_ip} to {current_ip}", config['store_id'], config['terminal_id'])
-            last_ip = current_ip
-
-        if current_isp != last_isp:
-            log_change("ISP Change", f"From {last_isp} to {current_isp}", config['store_id'], config['terminal_id'])
-            last_isp = current_isp
-
-        if app_status != last_app_status:
-            log_change("App Status Change", f"From {last_app_status} to {app_status}", config['store_id'], config['terminal_id'])
-            last_app_status = app_status
-
-        send_status(config['store_id'], config['terminal_id'], "connected", current_ip, current_isp, app_status, memory_usage)
+        send_status(config['store_id'], config['terminal_id'], "connected", ip, isp, app_status, memory_usage, logon_status)
 
         new_version = check_for_updates(current_version)
         if new_version:

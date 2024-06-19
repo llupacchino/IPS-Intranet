@@ -1,4 +1,4 @@
-store_id=Als
+store_id=Grenbriar
 terminal_id=1
 app_name=chrome.exe
-version=1.0.2
+version=1.0

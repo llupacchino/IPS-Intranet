@@ -1203,9 +1203,9 @@
  [('base_library.zip',
    'C:\\Users\\tyno1\\PycharmProjects\\IPS_Intranet\\build\\terminal\\base_library.zip',
    'DATA'),
-  ('certifi\\cacert.pem',
-   'C:\\Users\\tyno1\\PycharmProjects\\IPS_Intranet\\venv\\Lib\\site-packages\\certifi\\cacert.pem',
-   'DATA'),
   ('certifi\\py.typed',
    'C:\\Users\\tyno1\\PycharmProjects\\IPS_Intranet\\venv\\Lib\\site-packages\\certifi\\py.typed',
+   'DATA'),
+  ('certifi\\cacert.pem',
+   'C:\\Users\\tyno1\\PycharmProjects\\IPS_Intranet\\venv\\Lib\\site-packages\\certifi\\cacert.pem',
    'DATA')])
